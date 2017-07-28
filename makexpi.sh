@@ -1,5 +1,5 @@
 #!/bin/sh
-APP_NAME=torbutton
+APP_NAME=jondoswitcher
 #VERSION=`grep em:version src/install.rdf | sed -e 's/["]//g' | cut -f2 -d=`
 XPI_NAME="$APP_NAME-`grep em:version src/install.rdf | sed -e 's/[<>]/	/g' | cut -f3`.xpi"
 
@@ -11,9 +11,6 @@ fi
 
 # create jar file (we're just storing files here)
 echo ---------- create $APP_NAME.jar file ----------
-cd src/chrome
-#zip -r0 ../../$APP_NAME.jar ./ -x "*.svn/*"
-cd ../..
 
 # create .xpi
 echo ---------- create $APP_NAME.xpi ----------
