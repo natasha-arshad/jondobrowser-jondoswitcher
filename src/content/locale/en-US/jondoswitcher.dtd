@@ -1,0 +1,11 @@
+<!ENTITY network.select "Select Network">
+<!ENTITY network.jondo "JonDo Network">
+<!ENTITY network.tor "Tor Network">
+<!ENTITY network.direct "Direct Connection">
+
+<!ENTITY update_available.title "Update Available">
+<!ENTITY update_available.alert1 "An important update is available.">
+<!ENTITY update_available.alert2 "Would you like to switch off Tor network while downloading the update?">
+<!ENTITY update_available.alert3 "This will require browser restart.">
+<!ENTITY button_yes "Yes">
+<!ENTITY button_no "No">

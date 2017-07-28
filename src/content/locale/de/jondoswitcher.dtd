@@ -1,0 +1,11 @@
+<!ENTITY network.select "Netzwerk auswählen">
+<!ENTITY network.jondo "JonDo Netzwerk">
+<!ENTITY network.tor "Tor-Netzwerk">
+<!ENTITY network.direct "Direkte Verbindung">
+
+<!ENTITY update_available.title "Update verfügbar">
+<!ENTITY update_available.alert1 "Ein wichtiges Update ist verfügbar.">
+<!ENTITY update_available.alert2 "Möchten Sie das Tor-Netzwerk beim Herunterladen des Updates ausschalten?">
+<!ENTITY update_available.alert3 "Dies erfordert einen Browser-Neustart.">
+<!ENTITY button_yes "Ja">
+<!ENTITY button_no "Nein">

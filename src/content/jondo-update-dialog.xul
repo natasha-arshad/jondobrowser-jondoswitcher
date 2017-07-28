@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+<!DOCTYPE window SYSTEM "chrome://jondoswitcher/locale/jondoswitcher.dtd">
+<dialog xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+    id="jondo-update-dialog" title="&update_available.title;"
+    buttons="extra1,extra2"
+    ondialogextra1="return TorOffOk();"
+    buttonlabelextra1="&button_yes;"
+    ondialogextra2="return TorOffCancel();"
+    buttonlabelextra2="&button_no;"
+    defaultButton="extra2">
+    
+    <script type="application/x-javascript" src="chrome://jondoswitcher/content/jondo-update-dialog.js"/>
+    <hbox style="block">
+    	<label value="&update_available.alert1;"/>
+    </hbox>
+    <hbox style="block">
+    	<label value="&update_available.alert2;"/>
+    </hbox>
+    <hbox style="block">
+    	<label value="&update_available.alert3;"/>
+    </hbox>
+</dialog>

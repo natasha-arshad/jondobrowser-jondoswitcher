@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!DOCTYPE window SYSTEM "chrome://jondoswitcher/locale/jondoswitcher.dtd">
+<overlay id="jondoswitcher-overlay"
+         xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+
+    <script type="application/x-javascript" src="chrome://jondoswitcher/content/jondoswitcher.js" />
+
+    <toolbox id="navigator-toolbox">
+        <toolbar id="jondo-switcher-bar" style="height:32px; padding: 0;">
+            <label id="jondo-switcher-message" value="" crop="end" style="font-size:14px; padding:4px; margin:4px; height: 24px;"/>
+            <toolbarbutton label="&network.select;" type="menu" style="font-size:14px">
+                <menupopup id="jondo-switcher-menu">
+                    <menuitem id = "enableJonDo" label="&network.jondo;" onclick="enableJonDo();"/>
+                    <menuitem id = "enableTor" label="&network.tor;" onclick="enableTor();"/>
+                    <menuitem id = "disableAllProxies" label="&network.direct;" onclick="disableAllProxies();"/>
+                </menupopup>
+            </toolbarbutton>
+        </toolbar>
+    </toolbox>
+</overlay>
