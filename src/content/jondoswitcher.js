@@ -323,6 +323,7 @@ function enableJonDo(){
     cloneProxySettings("extensions.jondoswitcher.jondobutton.", "network.proxy.");
     setCurrentNetwork("jondo");
     switchAddons(true, false);
+    changeHomePage("about:tor");
     restart();
 }
 
@@ -336,6 +337,7 @@ function enableTor(){
     cloneProxySettings("extensions.jondoswitcher.torbutton.", "network.proxy.");
     setCurrentNetwork("tor");
     switchAddons(false, true);
+    changeHomePage("about:tor");
     restart();
 }
 
@@ -346,6 +348,7 @@ function disableAllProxies(){
     cloneProxySettings("extensions.jondoswitcher.direct.", "network.proxy.");
     setCurrentNetwork("direct");
     switchAddons(false, false);
+    changeHomePage("about:noproxy");
     restart();
 }
 
@@ -478,6 +481,17 @@ function cloneProxySettings(srcBranchName, destBranchName){
             destBranch.setIntPref("http_port", srcBranch.getIntPref("http_port"));
             destBranch.setCharPref("ftp", srcBranch.getCharPref("ftp"));
             destBranch.setIntPref("ftp_port", srcBranch.getIntPref("ftp_port"));
+        }
+    } catch(e){
+        alert(e);
+    }
+}
+
+function changeHomePage(homePage){
+    try{
+        if(o_prefs){
+            var branch = o_prefs.getBranch("browser.startup.");
+            branch.setCharPref("homepage", homePage);
         }
     } catch(e){
         alert(e);
