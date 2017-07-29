@@ -28,6 +28,7 @@ window.addEventListener("load", function jondo_switcher_load() {
     }catch (e){
     }
 
+    //multi-language strings bundle
     stringsBundle = sb.createBundle("chrome://jondoswitcher/locale/jondoswitcher.properties");
 
     //if this is the first time loading, initialize once
@@ -74,6 +75,7 @@ window.addEventListener("load", function jondo_switcher_load() {
 function validateCurrentNetwork(){
     //if both are enabled, disable tor and restart
     if(jondoEnabled && torEnabled){
+        alert("JonDo launch Error!\nPlease restart JonDoBrowser to fix this error.");
         switchAddons(true, false);
         restart();
         return;
