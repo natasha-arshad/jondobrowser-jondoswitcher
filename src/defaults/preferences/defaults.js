@@ -1,5 +1,6 @@
 pref("extensions.jondoswitcher.current_network", "jondo");
 pref("extensions.jondoswitcher.update_status", 0);
+pref("extensions.jondoswitcher.is_first_launch", 1);
 
 // These prefs set the about:preferences values when jondo is on
 pref("extensions.jondoswitcher.jondobutton.type", 1);

@@ -1,41 +1,51 @@
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 Cu.import('resource://gre/modules/Services.jsm');
 Cu.import("resource://gre/modules/AddonManager.jsm");
-let o_prefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService);
-var sb = Components.classes["@mozilla.org/intl/stringbundle;1"].getService(Components.interfaces.nsIStringBundleService);
+Cu.import("resource://gre/modules/NetUtil.jsm");
+Cu.import("resource://gre/modules/FileUtils.jsm");
+
+let prefsService = Cc["@mozilla.org/preferences-service;1"].getService(Ci.nsIPrefService);
+var stringBundleService = Cc["@mozilla.org/intl/stringbundle;1"].getService(Ci.nsIStringBundleService);
+var toolkitProfileService = Cc["@mozilla.org/toolkit/profile-service;1"].createInstance(Ci.nsIToolkitProfileService);
+var xreService = Cc["@mozilla.org/xre/app-info;1"].getService(Ci.nsIXULRuntime);
 
 var switcherInitCount = 0;
-var curNetwork = 0; //0: direct, 1: jondo, 2: tor
+
+var curNetwork = 0;                     //0: direct, 1: jondo, 2: tor
 var jondoEnabled = false;
 var jondoChecked = false;
 var torEnabled = false;
 var torChecked = false;
-var dontAskTorToggling = false;
-var updateDialogShown = false;
-var stringsBundle = 0;
 
+var dontAskTorToggling = false;         //update through Tor
+var updateDialogShown = false;
+
+var stringsBundle = 0;                  //string bundle object
+var xpiSrcDir = null, xpiDestDir = null;      //xpi copying locations
+
+// run jondo_switcher_load on browser load
+// initialization for switcher ui
 window.addEventListener("load", function jondo_switcher_load() {
     //remove onload listener
     window.removeEventListener("load", jondo_switcher_load, false);
     //reset no_proxies_on to ""
     try{
-        if(o_prefs){
-            let o_branch = o_prefs.getBranch("network.proxy.");
-            if (o_branch) {
-                o_branch.setCharPref("no_proxies_on", "");
+        if(prefsService){
+            let prefsBranch = prefsService.getBranch("network.proxy.");
+            if (prefsBranch) {
+                prefsBranch.setCharPref("no_proxies_on", "");
             }
         }
     }catch (e){
     }
 
     //multi-language strings bundle
-    stringsBundle = sb.createBundle("chrome://jondoswitcher/locale/jondoswitcher.properties");
+    stringsBundle = stringBundleService.createBundle("chrome://jondoswitcher/locale/jondoswitcher.properties");
 
     //if this is the first time loading, initialize once
     if(switcherInitCount == 0){       
         //init update intercepter
         JondoUpdateIntercepter.init();
-
         try{
             //check if jondo addons are enabled
             AddonManager.getAddonByID("jondo-launcher@jondos.de", function(addon) {
@@ -45,10 +55,9 @@ window.addEventListener("load", function jondo_switcher_load() {
                     jondoEnabled = false;
                 }
                 jondoChecked = true;
-
                 if(torChecked){
                     validateCurrentNetwork();
-                }                
+                }
             });
             
             //check if tor addons are enabled
@@ -58,7 +67,7 @@ window.addEventListener("load", function jondo_switcher_load() {
                 }else{
                     torEnabled = false;
                 }
-
+                torChecked = true;
                 if(jondoChecked){
                     validateCurrentNetwork();
                 }
@@ -73,6 +82,48 @@ window.addEventListener("load", function jondo_switcher_load() {
 //validate current network preferences with enabled addons
 //switch addons if necessary
 function validateCurrentNetwork(){
+    //if this is the first launch after install, turn on jondo
+    try{
+        if(prefsService){
+            let prefsBranch = prefsService.getBranch("extensions.jondoswitcher.");
+            if(prefsBranch){
+                if(prefsBranch.getIntPref("is_first_launch") == 1){
+                    prefsBranch.setIntPref("is_first_launch", 0);
+                    if(!jondoEnabled && !torEnabled){
+                        switchAddons(true, false);
+                        restart();
+                        return;
+                    }
+                }
+            }
+        }
+    }catch(e){
+        alert(e);
+    }
+
+    //create extensionsDir.txt file that contains extensions directory path
+    try{
+        //initialize xpi paths
+        getXpiPaths();
+        var mOS = xreService.OS; 
+        var txtFile = null;
+        //for osx, print to JonDoBrowser-Data/extensionsDir.txt
+        if(mOS == "Darwin"){
+            txtFile = xpiDestDir.clone();
+            txtFile = txtFile.parent;
+            txtFile = txtFile.parent;
+            txtFile = txtFile.parent;
+        }
+        //for win/linux, print to JonDo/extensionsDir.txt
+        else{
+            txtFile = xpiSrcDir.clone();
+        }
+        txtFile.appendRelativePath("extensionsDir.txt");
+        writeToExtensionDirFile(txtFile, xpiDestDir.path);
+    }catch(e){
+        alert(e);
+    }
+    
     //if both are enabled, disable tor and restart
     if(jondoEnabled && torEnabled){
         alert("JonDo launch Error!\nPlease restart JonDoBrowser to fix this error.");
@@ -104,11 +155,11 @@ function validateCurrentNetwork(){
         //if tor is temporarily turned off during update donwload
         //turn it back on
         try{
-            if(o_prefs){
-                let o_branch = o_prefs.getBranch("extensions.jondoswitcher.");
-                if (o_branch) {
-                    let currentNetwork = o_branch.getCharPref("current_network");
-                    let updateStatus = o_branch.getIntPref("update_status");
+            if(prefsService){
+                let prefsBranch = prefsService.getBranch("extensions.jondoswitcher.");
+                if (prefsBranch) {
+                    let currentNetwork = prefsBranch.getCharPref("current_network");
+                    let updateStatus = prefsBranch.getIntPref("update_status");
                     if(currentNetwork == "tor" && updateStatus == 1){
                         setUpdateStatus(0);
                         switchAddons(false, true);
@@ -122,7 +173,8 @@ function validateCurrentNetwork(){
     }
 }
 
-//continue to update
+//continue to update on browser
+//called when browser switches from direct connection to tor network for update
 function continueUpdates() {
     let updateMgr = Cc["@mozilla.org/updates/update-manager;1"].getService(Ci.nsIUpdateManager);
     let update = updateMgr.activeUpdate;
@@ -137,6 +189,8 @@ function continueUpdates() {
     else
         prompter.checkForUpdates();
 }
+
+
 
 //flag1 : enable jondo
 //flag2 : enable tor
@@ -170,84 +224,20 @@ function switchAddons(flag1, flag2){
         if (!addon) return;
         addon.userDisabled = !flag2;
     });
-    
+
     // addons copying
-    var xr = Cc["@mozilla.org/xre/app-info;1"].getService(Ci.nsIXULRuntime);
-    var mOS = xr.OS;        
-    let topDir = Cc["@mozilla.org/file/directory_service;1"].getService(Ci.nsIProperties).get("CurProcD", Ci.nsIFile);
-    let appInfo = Cc["@mozilla.org/xre/app-info;1"].getService(Ci.nsIXULAppInfo);
-    let tbbBrowserDepth = (mOS == "Darwin") ? 3 : 1;
-    if ((appInfo.ID == "{3550f703-e582-4d05-9a08-453d09bdfdc6}") || (appInfo.ID == "{33cb9019-c295-46dd-be21-8c4936574bee}"))
-    {
-        // On Thunderbird/Instantbird, the topDir is the root dir and not
-        // browser/, so we need to iterate one level less than Firefox.
-        --tbbBrowserDepth;
-    }
-    while (tbbBrowserDepth > 0)
-    {
-        let didRemove = (topDir.leafName != ".");
-        topDir = topDir.parent;
-        if (didRemove){
-            tbbBrowserDepth--;
-        }
-    }
-    let dirSrc = topDir.clone();
-    let dirDest = topDir.clone();
-    if(mOS == "WINNT"){
-        dirSrc.appendRelativePath("JonDo");
-        dirDest.appendRelativePath("JonDoBrowser\\Data\\Browser\\profile.default\\extensions");
-    }else if(mOS == "Darwin"){
-        dirSrc.appendRelativePath("Contents/MacOS/JonDo");
-        dirDest.appendRelativePath("Contents/Resources/distribution/extensions");
-    }else{
-        dirSrc.appendRelativePath("JonDo");
-        dirDest.appendRelativePath("JonDoBrowser/Data/Browser/profile.default/extensions");
-    }
-    //Services.prompt.alert(null, "Launching JonDo", topDir.path);
-    
-    if(dirSrc.exists() && dirDest.exists()){
-        /*
-        //remove unnecessary addons first
-        if(!flag1){
-            let fileJonDoButton = dirDest.clone(); fileJonDoButton.appendRelativePath("info@jondos.de.xpi");
-            let fileJonDoLauncher = dirDest.clone(); fileJonDoLauncher.appendRelativePath("jondo-launcher@jondos.de.xpi");
-            try{
-                if(fileJonDoButton.exists()){
-                    fileJonDoButton.remove(false);
-                }
-                if(fileJonDoLauncher.exists()){
-                    fileJonDoLauncher.remove(false);
-                }
-            }catch(e){
-
-            }
-        }
-        if(!flag2){
-            let fileTorButton = dirDest.clone(); fileTorButton.appendRelativePath("torbutton@torproject.org.xpi");
-            let fileTorLauncher = dirDest.clone(); fileTorLauncher.appendRelativePath("tor-launcher@torproject.org.xpi");
-            try{
-                if(fileTorButton.exists()){
-                    fileTorButton.remove(false);
-                }
-                if(fileTorLauncher.exists()){
-                    fileTorLauncher.remove(false);
-                }
-            }catch(e){
-
-            }
-        }
-        */
-
+    if(xpiSrcDir != null && xpiSrcDir.exists() && 
+       xpiDestDir != null && xpiDestDir.exists()){
         // if jondo is enabled, jondobutton & jondolauncher are copied to extension directory
         if(flag1){
-            let fileJonDoButton = dirSrc.clone(); fileJonDoButton.appendRelativePath("info@jondos.de.xpi");
-            let fileJonDoLauncher = dirSrc.clone(); fileJonDoLauncher.appendRelativePath("jondo-launcher@jondos.de.xpi");
+            let fileJonDoButton = xpiSrcDir.clone(); fileJonDoButton.appendRelativePath("info@jondos.de.xpi");
+            let fileJonDoLauncher = xpiSrcDir.clone(); fileJonDoLauncher.appendRelativePath("jondo-launcher@jondos.de.xpi");
             try{
                 if(fileJonDoButton.exists()){
-                    fileJonDoButton.copyTo(dirDest, "");
+                    fileJonDoButton.copyTo(xpiDestDir, "");
                 }
                 if(fileJonDoLauncher.exists()){
-                    fileJonDoLauncher.copyTo(dirDest, "");
+                    fileJonDoLauncher.copyTo(xpiDestDir, "");
                 }
             }catch(e){
 
@@ -255,14 +245,14 @@ function switchAddons(flag1, flag2){
         } 
         // if tor is enabled, torbutton & torlauncher are copied to extension directory
         else if(flag2){
-            let fileTorButton = dirSrc.clone(); fileTorButton.appendRelativePath("torbutton@torproject.org.xpi");
-            let fileTorLauncher = dirSrc.clone(); fileTorLauncher.appendRelativePath("tor-launcher@torproject.org.xpi");
+            let fileTorButton = xpiSrcDir.clone(); fileTorButton.appendRelativePath("torbutton@torproject.org.xpi");
+            let fileTorLauncher = xpiSrcDir.clone(); fileTorLauncher.appendRelativePath("tor-launcher@torproject.org.xpi");
             try{
                 if(fileTorButton.exists()){
-                    fileTorButton.copyTo(dirDest, "");
+                    fileTorButton.copyTo(xpiDestDir, "");
                 }
                 if(fileTorLauncher.exists()){
-                    fileTorLauncher.copyTo(dirDest, "");
+                    fileTorLauncher.copyTo(xpiDestDir, "");
                 }
             }catch(e){
 
@@ -270,10 +260,10 @@ function switchAddons(flag1, flag2){
         }
         // if connection is direct, jondobutton is copied
         else {
-            let fileJonDoButton = dirSrc.clone(); fileJonDoButton.appendRelativePath("info@jondos.de.xpi");
+            let fileJonDoButton = xpiSrcDir.clone(); fileJonDoButton.appendRelativePath("info@jondos.de.xpi");
             try{
                 if(fileJonDoButton.exists()){
-                    fileJonDoButton.copyTo(dirDest, "");
+                    fileJonDoButton.copyTo(xpiDestDir, "");
                 }
             }catch(e){
 
@@ -284,35 +274,29 @@ function switchAddons(flag1, flag2){
     // set preferences so that socks proxy is not enforced except for tor,
     // in which case, socks proxy will be turned on by torbutton after restart
     try{
-        if (o_prefs)
+        if (prefsService)
         {
-            o_branch = o_prefs.getBranch("network.proxy.");
-            if (o_branch)
+            prefsBranch = prefsService.getBranch("network.proxy.");
+            if (prefsBranch)
             {
-                o_branch.setCharPref("socks", "");
-                o_branch.setIntPref("socks_port", 0);
-                o_branch.setBoolPref("socks_remote_dns", false);
+                prefsBranch.setCharPref("socks", "");
+                prefsBranch.setIntPref("socks_port", 0);
+                prefsBranch.setBoolPref("socks_remote_dns", false);
             }    
         }
     } catch (e) {}
     
     //set environment variable
     try{
-        var env = Components.classes["@mozilla.org/process/environment;1"].getService(Components.interfaces.nsIEnvironment);
+        var env = Cc["@mozilla.org/process/environment;1"].getService(Ci.nsIEnvironment);
         if (flag1 && !flag2) {
             env.set("JONDO_NETWORK", "jondo");
-            //alert("Please restart JonDoBrowser to start using JonDo network.");
         } else if (!flag1 && flag2) {
             env.set("JONDO_NETWORK", "tor");
-            //alert("Please restart JonDoBrowser to start using Tor network.");
         } else {
             env.set("JONDO_NETWORK", "direct");
-            //alert("Please restart JonDoBrowser to directly connect to the Internet.");
-        }
-        
-    } catch (e) {
-        alert(e);
-    }
+        }        
+    } catch (e) {}
 }
 
 function enableJonDo(){
@@ -356,11 +340,11 @@ function disableAllProxies(){
 
 function setCurrentNetwork(networkString){
     try{
-        if (o_prefs)
+        if (prefsService)
         {
-            let o_branch = o_prefs.getBranch("extensions.jondoswitcher.");
-            if (o_branch) {
-                o_branch.setCharPref("current_network", networkString);
+            let prefsBranch = prefsService.getBranch("extensions.jondoswitcher.");
+            if (prefsBranch) {
+                prefsBranch.setCharPref("current_network", networkString);
             }
         }
     }catch(e){
@@ -369,11 +353,11 @@ function setCurrentNetwork(networkString){
 }
 function setUpdateStatus(updateStatus){
     try{
-        if (o_prefs)
+        if (prefsService)
         {
-            let o_branch = o_prefs.getBranch("extensions.jondoswitcher.");
-            if (o_branch) {
-                o_branch.setIntPref("update_status", updateStatus);
+            let prefsBranch = prefsService.getBranch("extensions.jondoswitcher.");
+            if (prefsBranch) {
+                prefsBranch.setIntPref("update_status", updateStatus);
             }
         }
     }catch(e){
@@ -383,29 +367,21 @@ function setUpdateStatus(updateStatus){
 
 function restart() {
     try{
-      let canceled = Cc["@mozilla.org/supports-PRBool;1"]
-          .createInstance(Ci.nsISupportsPRBool);
-
+      let canceled = Cc["@mozilla.org/supports-PRBool;1"].createInstance(Ci.nsISupportsPRBool);
       Services.obs.notifyObservers(canceled, "quit-application-requested", "restart");
-
       if (canceled.data) return false; // somebody canceled our quit request
-
       // restart
-      Cc['@mozilla.org/toolkit/app-startup;1'].getService(Ci.nsIAppStartup)
-          .quit(Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart);
+      Cc['@mozilla.org/toolkit/app-startup;1'].getService(Ci.nsIAppStartup).quit(Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart);
 
       return true;
-    }catch (e){
-    }
+    }catch (e){}
 }
 
 var JondoUpdateIntercepter = {
    observerService : null,
 
    init : function() {
-      JondoUpdateIntercepter.observerService =
-                   Components.classes["@mozilla.org/observer-service;1"]
-                   .getService(Components.interfaces.nsIObserverService);
+      JondoUpdateIntercepter.observerService = Cc["@mozilla.org/observer-service;1"].getService(Ci.nsIObserverService);
       JondoUpdateIntercepter.observerService.addObserver(JondoUpdateIntercepter.observerResponseHandler, 'http-on-examine-response', false);
       JondoUpdateIntercepter.observerService.addObserver(JondoUpdateIntercepter.observerResponseHandler, 'http-on-examine-cached-response', false);
    },
@@ -417,50 +393,49 @@ var JondoUpdateIntercepter = {
 
    observerResponseHandler : { observe : function(subject, topic, data) {
       // http interface
-      var httpChannel = subject.QueryInterface(Components.interfaces.nsIHttpChannel);
+      var httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
       if(httpChannel === null) {
          return;
       }
       //only for jondo update server
       var url = httpChannel.URI.spec;
-      if(url.includes("jondobrowser.jondos.de")){
+      if(url.includes("jondobrowser.jondos.de/alpha/") || 
+        url.includes("jondobrowser.jondos.de/beta/") || 
+        url.includes("jondobrowser.jondos.de/release/")){
         try{
-        var contentLength = httpChannel.getResponseHeader('Content-Length');
-          if (contentLength){
-            contentLength = parseInt(contentLength);
-            //if update available
-            if(contentLength > 100){
-                if(jondoEnabled){
-                    //set no_proxies_on for jondo update server
-                    try{
-                        if (o_prefs)
-                        {
-                            o_branch = o_prefs.getBranch("network.proxy.");
-                            if (o_branch)
+            var contentLength = httpChannel.getResponseHeader('Content-Length');
+            if (contentLength){
+                contentLength = parseInt(contentLength);
+                //if update available
+                if(contentLength > 100){
+                    if(jondoEnabled){
+                        //set no_proxies_on for jondo update server
+                        try{
+                            if (prefsService)
                             {
-                                o_branch.setCharPref("no_proxies_on", "jondobrowser.jondos.de");
+                                prefsBranch = prefsService.getBranch("network.proxy.");
+                                if (prefsBranch)
+                                {
+                                    prefsBranch.setCharPref("no_proxies_on", "jondobrowser.jondos.de");
+                                }
                             }
+                        }catch(e){}
+                    }else if(torEnabled && !dontAskTorToggling && !updateDialogShown){
+                        updateDialogShown = true;
+                        var params = {inn:null, out:""};
+                        window.openDialog("chrome://jondoswitcher/content/jondo-update-dialog.xul", "",
+                            "chrome, dialog, modal, resizable=no, centerscreen", params).focus();
+                        if(params.out == "ok"){
+                            setCurrentNetwork("tor");
+                            setUpdateStatus(1);
+                            switchAddons(false, false);
+                            restart();
+                        }else if(params.out == "cancel"){
+                            dontAskTorToggling = true;
                         }
-                    }catch(e){}
-                }else if(torEnabled && !dontAskTorToggling && !updateDialogShown){
-                    updateDialogShown = true;
-                    var params = {inn:null, out:""};
-                    window.openDialog("chrome://jondoswitcher/content/jondo-update-dialog.xul", "",
-                        "chrome, dialog, modal, resizable=no, centerscreen", params).focus();
-                    if(params.out == "ok"){
-                    //if(window.confirm("An important update is available.\nWould you like to switch off Tor network while downloading the update?\nThis will require browser restart.") == true){
-                        setCurrentNetwork("tor");
-                        setUpdateStatus(1);
-                        switchAddons(false, false);
-                        //restart firefox
-                        restart();
-                    //}
-                    }else if(params.out == "cancel"){
-                        dontAskTorToggling = true;
                     }
                 }
             }
-          }
         }catch(e){
             alert(e);
         }
@@ -471,9 +446,9 @@ var JondoUpdateIntercepter = {
 
 function cloneProxySettings(srcBranchName, destBranchName){
     try{
-        if(o_prefs){
-            var srcBranch = o_prefs.getBranch(srcBranchName);
-            var destBranch = o_prefs.getBranch(destBranchName);
+        if(prefsService){
+            var srcBranch = prefsService.getBranch(srcBranchName);
+            var destBranch = prefsService.getBranch(destBranchName);
             destBranch.setIntPref("type", srcBranch.getIntPref("type"));
             destBranch.setCharPref("ssl", srcBranch.getCharPref("ssl"));
             destBranch.setIntPref("ssl_port", srcBranch.getIntPref("ssl_port"));
@@ -491,11 +466,61 @@ function cloneProxySettings(srcBranchName, destBranchName){
 
 function changeHomePage(homePage){
     try{
-        if(o_prefs){
-            var branch = o_prefs.getBranch("browser.startup.");
+        if(prefsService){
+            var branch = prefsService.getBranch("browser.startup.");
             branch.setCharPref("homepage", homePage);
         }
     } catch(e){
         alert(e);
+    }
+}
+
+function writeToExtensionDirFile(file, data){
+    // file is nsIFile, data is a string
+    var ostream = FileUtils.openSafeFileOutputStream(file);
+    var converter = Cc["@mozilla.org/intl/scriptableunicodeconverter"].createInstance(Ci.nsIScriptableUnicodeConverter);
+    converter.charset = "UTF-8";
+    var istream = converter.convertToInputStream(data);
+    // The last argument (the callback) is optional.
+    NetUtil.asyncCopy(istream, ostream, function(status) {
+        if (!Components.isSuccessCode(status)) {
+            // Handle error!
+            return;
+        }
+    });
+}
+
+function getXpiPaths(){
+    var mOS = xreService.OS;        
+    let topDir = Cc["@mozilla.org/file/directory_service;1"].getService(Ci.nsIProperties).get("CurProcD", Ci.nsIFile);
+    let appInfo = Cc["@mozilla.org/xre/app-info;1"].getService(Ci.nsIXULAppInfo);
+    let tbbBrowserDepth = (mOS == "Darwin") ? 3 : 1;
+    if ((appInfo.ID == "{3550f703-e582-4d05-9a08-453d09bdfdc6}") || (appInfo.ID == "{33cb9019-c295-46dd-be21-8c4936574bee}"))
+    {
+        // On Thunderbird/Instantbird, the topDir is the root dir and not
+        // browser/, so we need to iterate one level less than Firefox.
+        --tbbBrowserDepth;
+    }
+    while (tbbBrowserDepth > 0)
+    {
+        let didRemove = (topDir.leafName != ".");
+        topDir = topDir.parent;
+        if (didRemove){
+            tbbBrowserDepth--;
+        }
+    }
+    // JonDo directory where xpi's are backed up
+    xpiSrcDir = topDir.clone();
+    // extensions directory where xpi's should be copied
+    xpiDestDir = toolkitProfileService.getProfileByName("default").rootDir;
+    if(mOS == "WINNT"){
+        xpiSrcDir.appendRelativePath("JonDo");
+        xpiDestDir.appendRelativePath("extensions");
+    }else if(mOS == "Darwin"){
+        xpiSrcDir.appendRelativePath("Contents/MacOS/JonDo");
+        xpiDestDir.appendRelativePath("extensions");
+    }else{
+        xpiSrcDir.appendRelativePath("JonDo");
+        xpiDestDir.appendRelativePath("extensions");
     }
 }
