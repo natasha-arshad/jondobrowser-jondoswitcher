@@ -21,7 +21,8 @@ var dontAskTorToggling = false;         //update through Tor
 var updateDialogShown = false;
 
 var stringsBundle = 0;                  //string bundle object
-var xpiSrcDir = null, xpiDestDir = null;      //xpi copying locations
+var xpiSrcDir = null, xpiDestDir = null;//xpi copying locations
+var extTxtDir = null;                   //for printing extension directory in OSX
 
 // run jondo_switcher_load on browser load
 // initialization for switcher ui
@@ -109,7 +110,7 @@ function validateCurrentNetwork(){
         var txtFile = null;
         //for osx, print to JonDoBrowser-Data/extensionsDir.txt
         if(mOS == "Darwin"){
-            txtFile = xpiDestDir.clone();
+            txtFile = extTxtDir.clone();
             txtFile = txtFile.parent;
             txtFile = txtFile.parent;
             txtFile = txtFile.parent;
@@ -519,6 +520,13 @@ function getXpiPaths(){
     }else if(mOS == "Darwin"){
         xpiSrcDir.appendRelativePath("Contents/MacOS/JonDo");
         xpiDestDir.appendRelativePath("extensions");
+        extTxtDir = xpiDestDir.clone();
+        // special case : /extensions/extensions directory
+        let tmpXpiDestDir = xpiDestDir.clone();
+        tmpXpiDestDir.appendRelativePath("extensions");
+        if(tmpXpiDestDir.exists()){
+            xpiDestDir = tmpXpiDestDir;
+        }
     }else{
         xpiSrcDir.appendRelativePath("JonDo");
         xpiDestDir.appendRelativePath("extensions");
