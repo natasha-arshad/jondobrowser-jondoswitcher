@@ -84,6 +84,8 @@ window.addEventListener("load", function jondo_switcher_load() {
 function validateCurrentNetwork(){
     //if this is the first launch after install, turn on jondo
     try{
+        //initialize xpi paths
+        getXpiPaths();
         if(prefsService){
             let prefsBranch = prefsService.getBranch("extensions.jondoswitcher.");
             if(prefsBranch){
@@ -103,8 +105,6 @@ function validateCurrentNetwork(){
 
     //create extensionsDir.txt file that contains extensions directory path
     try{
-        //initialize xpi paths
-        getXpiPaths();
         var mOS = xreService.OS; 
         var txtFile = null;
         //for osx, print to JonDoBrowser-Data/extensionsDir.txt
