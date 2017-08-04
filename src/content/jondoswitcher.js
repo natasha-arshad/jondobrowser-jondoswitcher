@@ -513,7 +513,7 @@ function getXpiPaths(){
     // JonDo directory where xpi's are backed up
     xpiSrcDir = topDir.clone();
     // extensions directory where xpi's should be copied
-    xpiDestDir = toolkitProfileService.getProfileByName("default").rootDir;
+    xpiDestDir = toolkitProfileService.getProfileByName("default").rootDir.clone();
     if(mOS == "WINNT"){
         xpiSrcDir.appendRelativePath("JonDo");
         xpiDestDir.appendRelativePath("extensions");
