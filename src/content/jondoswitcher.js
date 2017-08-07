@@ -45,8 +45,10 @@ window.addEventListener("load", function jondo_switcher_load() {
 
     //if this is the first time loading, initialize once
     if(switcherInitCount == 0){       
-        //init update intercepter
+        // init update intercepter
         JondoUpdateIntercepter.init();
+        // shutdown intercepter
+        BrowserShutdownIntercepter.init();
         try{
             //check if jondo addons are enabled
             AddonManager.getAddonByID("jondo-launcher@jondos.de", function(addon) {
@@ -153,6 +155,7 @@ function validateCurrentNetwork(){
         window.top.document.getElementById("disableAllProxies").style.display = "none";
         window.top.document.getElementById("jondo-switcher-message").value = stringsBundle.GetStringFromName("connectedDirectly") + "   ";
         cloneProxySettings("extensions.jondoswitcher.direct.", "network.proxy.");
+        curNetwork = 0;
         //if tor is temporarily turned off during update donwload
         //turn it back on
         try{
@@ -164,6 +167,7 @@ function validateCurrentNetwork(){
                     if(currentNetwork == "tor" && updateStatus == 1){
                         setUpdateStatus(0);
                         switchAddons(false, true);
+                        curNetwork = 2;
                         continueUpdates();
                     }
                 }
@@ -300,6 +304,7 @@ function switchAddons(flag1, flag2){
     } catch (e) {}
 }
 
+// enable jondo addons and restart
 function enableJonDo(){
     if(curNetwork == 1) return;
     if(window.confirm(stringsBundle.GetStringFromName("browserRestartAlert1") + "\n" + stringsBundle.GetStringFromName("browserRestartAlert2")) == false) return;
@@ -310,6 +315,7 @@ function enableJonDo(){
     cloneProxySettings("extensions.jondoswitcher.jondobutton.", "network.proxy.");
     setCurrentNetwork("jondo");
     switchAddons(true, false);
+    curNetwork = 1;
     changeHomePage("about:tor");
     restart();
 }
@@ -324,6 +330,7 @@ function enableTor(){
     cloneProxySettings("extensions.jondoswitcher.torbutton.", "network.proxy.");
     setCurrentNetwork("tor");
     switchAddons(false, true);
+    curNetwork = 2;
     changeHomePage("about:tor");
     restart();
 }
@@ -335,6 +342,7 @@ function disableAllProxies(){
     cloneProxySettings("extensions.jondoswitcher.direct.", "network.proxy.");
     setCurrentNetwork("direct");
     switchAddons(false, false);
+    curNetwork = 2;
     changeHomePage("about:noproxy");
     restart();
 }
@@ -441,6 +449,26 @@ var JondoUpdateIntercepter = {
             alert(e);
         }
         return;
+      }
+   }}
+};
+
+var BrowserShutdownIntercepter = {
+   observerService : null,
+
+   init : function() {
+      BrowserShutdownIntercepter.observerService = Cc["@mozilla.org/observer-service;1"].getService(Ci.nsIObserverService);
+      BrowserShutdownIntercepter.observerService.addObserver(BrowserShutdownIntercepter.observerShutdownHandler, 'quit-application-requested', false);
+   },
+
+   uninit : function() {
+      BrowserShutdownIntercepter.observerService.removeObserver(BrowserShutdownIntercepter.observerShutdownHandler, 'quit-application-requested', false);
+   },
+
+   // clone proxy settings in direct connection mode
+   observerShutdownHandler : { observe : function(subject, topic, data) {
+      if(curNetwork == 0){
+          cloneProxySettings("network.proxy.", "extensions.jondoswitcher.direct.");
       }
    }}
 };

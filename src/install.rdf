@@ -6,7 +6,7 @@
         <em:name>JonDoSwitcher</em:name>
         <em:creator>JonDos GmbH</em:creator>
         <em:id>jondoswitcher@jondos.de</em:id>
-        <em:version>0.1.3</em:version>
+        <em:version>0.1.4</em:version>
         
         <!-- firefox -->
         <em:targetApplication>
