@@ -24,6 +24,8 @@ var stringsBundle = 0;                  //string bundle object
 var xpiSrcDir = null, xpiDestDir = null;//xpi copying locations
 var extTxtDir = null;                   //for printing extension directory in OSX
 
+var shouldBackupDirectProxyPrefs = true;//backup proxy settings on shutdown except for the very first shutdown after install
+
 // run jondo_switcher_load on browser load
 // initialization for switcher ui
 window.addEventListener("load", function jondo_switcher_load() {
@@ -95,6 +97,7 @@ function validateCurrentNetwork(){
                 if(prefsBranch.getIntPref("is_first_launch") == 1){
                     prefsBranch.setIntPref("is_first_launch", 0);
                     if(!jondoEnabled && !torEnabled){
+                        shouldBackupDirectProxyPrefs = false;
                         switchAddons(true, false);
                         restart();
                         return;
@@ -467,7 +470,7 @@ var BrowserShutdownIntercepter = {
 
    // clone proxy settings in direct connection mode
    observerShutdownHandler : { observe : function(subject, topic, data) {
-      if(curNetwork == 0){
+      if(curNetwork == 0 && shouldBackupDirectProxyPrefs){
           cloneProxySettings("network.proxy.", "extensions.jondoswitcher.direct.");
       }
    }}
