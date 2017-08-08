@@ -413,7 +413,7 @@ var JondoUpdateIntercepter = {
       var url = httpChannel.URI.spec;
       if(url.includes("jondobrowser.jondos.de/alpha/") || 
         url.includes("jondobrowser.jondos.de/beta/") || 
-        url.includes("jondobrowser.jondos.de/release/")){
+        url.includes("jondobrowser.jondos.de/product/")){
         try{
             var contentLength = httpChannel.getResponseHeader('Content-Length');
             if (contentLength){
