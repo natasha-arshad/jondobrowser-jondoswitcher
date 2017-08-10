@@ -481,15 +481,34 @@ function cloneProxySettings(srcBranchName, destBranchName){
         if(prefsService){
             var srcBranch = prefsService.getBranch(srcBranchName);
             var destBranch = prefsService.getBranch(destBranchName);
-            destBranch.setIntPref("type", srcBranch.getIntPref("type"));
-            destBranch.setCharPref("ssl", srcBranch.getCharPref("ssl"));
-            destBranch.setIntPref("ssl_port", srcBranch.getIntPref("ssl_port"));
-            destBranch.setCharPref("socks", srcBranch.getCharPref("socks"));
-            destBranch.setIntPref("socks_port", srcBranch.getIntPref("socks_port"));
-            destBranch.setCharPref("http", srcBranch.getCharPref("http"));
-            destBranch.setIntPref("http_port", srcBranch.getIntPref("http_port"));
+            destBranch.setIntPref("autoconfig_retry_interval_max", srcBranch.getIntPref("autoconfig_retry_interval_max"));
+            destBranch.setIntPref("autoconfig_retry_interval_min", srcBranch.getIntPref("autoconfig_retry_interval_min"));
+            destBranch.setCharPref("autoconfig_url", srcBranch.getCharPref("autoconfig_url"));
+
+            destBranch.setIntPref("failover_timeout", srcBranch.getIntPref("failover_timeout"));
+
             destBranch.setCharPref("ftp", srcBranch.getCharPref("ftp"));
             destBranch.setIntPref("ftp_port", srcBranch.getIntPref("ftp_port"));
+            destBranch.setCharPref("http", srcBranch.getCharPref("http"));
+            destBranch.setIntPref("http_port", srcBranch.getIntPref("http_port"));
+
+            destBranch.setCharPref("no_proxies_on", srcBranch.getCharPref("no_proxies_on"));
+            destBranch.setBoolPref("proxy_over_tls", srcBranch.getBoolPref("proxy_over_tls"));
+            destBranch.setBoolPref("share_proxy_settings", srcBranch.getBoolPref("share_proxy_settings"));
+
+            destBranch.setCharPref("socks", srcBranch.getCharPref("socks"));
+            destBranch.setIntPref("socks_port", srcBranch.getIntPref("socks_port"));
+            destBranch.setBoolPref("socks_remote_dns", srcBranch.getBoolPref("socks_remote_dns"));
+            destBranch.setIntPref("socks_version", srcBranch.getIntPref("socks_version"));
+
+            destBranch.setCharPref("ssl", srcBranch.getCharPref("ssl"));
+            destBranch.setIntPref("ssl_port", srcBranch.getIntPref("ssl_port"));
+            
+            destBranch.setIntPref("type", srcBranch.getIntPref("type"));
+
+            srcBranch = prefsService.getBranch(srcBranchName + "autoconfig_url.");
+            destBranch = prefsService.getBranch(destBranchName + "autoconfig_url.");
+            destBranch.setBoolPref("include_path", srcBranch.getBoolPref("include_path"));
         }
     } catch(e){
         alert(e);
