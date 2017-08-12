@@ -26,11 +26,15 @@ var extTxtDir = null;                   //for printing extension directory in OS
 
 var shouldBackupDirectProxyPrefs = true;//backup proxy settings on shutdown except for the very first shutdown after install
 
+var csrfToken = "";                   //csrf token for switching jondo cascade
+var postRequestCommand = "";          //control command for JAP.jar
+
 // run jondo_switcher_load on browser load
 // initialization for switcher ui
 window.addEventListener("load", function jondo_switcher_load() {
     //remove onload listener
     window.removeEventListener("load", jondo_switcher_load, false);
+    /*
     //reset no_proxies_on to ""
     try{
         if(prefsService){
@@ -41,6 +45,7 @@ window.addEventListener("load", function jondo_switcher_load() {
         }
     }catch (e){
     }
+    */
 
     //multi-language strings bundle
     stringsBundle = stringBundleService.createBundle("chrome://jondoswitcher/locale/jondoswitcher.properties");
@@ -421,6 +426,7 @@ var JondoUpdateIntercepter = {
                 //if update available
                 if(contentLength > 100){
                     if(jondoEnabled){
+                        /*
                         //set no_proxies_on for jondo update server
                         try{
                             if (prefsService)
@@ -432,6 +438,7 @@ var JondoUpdateIntercepter = {
                                 }
                             }
                         }catch(e){}
+                        */
                     }else if(torEnabled && !dontAskTorToggling && !updateDialogShown){
                         updateDialogShown = true;
                         var params = {inn:null, out:""};
@@ -582,3 +589,104 @@ function getXpiPaths(){
         xpiDestDir.appendRelativePath("extensions");
     }
 }
+
+/* send control commands to JAP.jar */
+function sendJAPControlCommand(command){
+    postRequestCommand = command;
+    if(csrfToken != ""){
+        sendPostRequest();
+    }else{
+        getCsrfToken();
+    }
+}
+function getCsrfToken(){
+    var url = "http://127.0.0.1:40011";
+    var oReq = new XMLHttpRequest();
+    oReq.addEventListener("load", onGetCsrfTokenResult);
+    oReq.open("GET", url);
+    oReq.send();
+}
+function onGetCsrfTokenResult(){
+    try{
+        var response = this.responseText;
+        csrfToken = response.substring(response.indexOf("CSRFTOKEN=") + 10);
+        sendPostRequest();
+    }catch(e){
+        alert(e);
+    }
+}
+function sendPostRequest(){
+    var url = "http://127.0.0.1:40011";
+    var oReq = new XMLHttpRequest();
+    oReq.addEventListener("load", onSendPostRequestResult);
+    oReq.open("POST", url);
+    oReq.setRequestHeader("CSRFTOKEN", csrfToken);
+    oReq.send(postRequestCommand);
+}
+function onSendPostRequestResult(){
+    try{
+        var response = this.responseText;
+        alert(response);
+    }catch(e){
+        alert(e);
+    }
+}
+
+/* inter-extension communication */
+// Listen for the event on all windows as it is unknown on which one
+// the event will be sent.
+function loadIntoWindow(myWindow) {
+    myWindow.addEventListener("Jondo-New-Identity", receiveMessageFromJondobutton, false);
+}
+
+function unloadFromWindow(myWindow) {
+    myWindow.removeEventListener("Jondo-New-Identity", receiveMessageFromJondobutton, false);
+}
+
+function forEachOpenWindow(fn) {
+    try{
+        // Apply a function to all open browser windows
+        var windows = Services.wm.getEnumerator("navigator:browser");
+        let windowCount = 0;
+        while (windows.hasMoreElements()) {
+            windowCount++;
+            fn(windows.getNext().QueryInterface(Ci.nsIDOMWindow));
+        }
+    }catch(e){
+        alert(e);
+    }
+}
+
+function receiveMessageFromJondobutton(event) {
+    var dataFromDummy = event.detail;
+    sendJAPControlCommand("SwitchCascade")
+}
+
+var WindowListener = {
+    onOpenWindow: function(aWindow)
+    {
+        try{
+            let domWindow = aWindow.QueryInterface(Ci.nsIInterfaceRequestor)
+                                   .getInterface(Ci.nsIDOMWindowInternal || Ci.nsIDOMWindow);
+            function onWindowLoad()
+            {
+                domWindow.removeEventListener("load",onWindowLoad);
+                if (domWindow.document.documentElement.getAttribute("windowtype") == "navigator:browser") {
+                    loadIntoWindow(domWindow);
+                }
+            }
+            domWindow.addEventListener("load",onWindowLoad);
+        }catch(e){
+            alert(e);
+        }
+    },
+
+    onCloseWindow: function(xulWindow) { },  // Each window has an unload event handler.
+
+    onWindowTitleChange: function(xulWindow, newTitle) { }
+};
+
+//Listen for the custom event on all current browser windows.
+forEachOpenWindow(loadIntoWindow);
+//Listen for the custom event on any new browser window.
+Services.wm.addListener(WindowListener);

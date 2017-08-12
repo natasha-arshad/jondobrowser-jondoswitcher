@@ -12,7 +12,7 @@ pref("extensions.jondoswitcher.jondobutton.ftp", "127.0.0.1");
 pref("extensions.jondoswitcher.jondobutton.ftp_port", 4001);
 pref("extensions.jondoswitcher.jondobutton.http", "127.0.0.1");
 pref("extensions.jondoswitcher.jondobutton.http_port", 4001);
-pref("extensions.jondoswitcher.jondobutton.no_proxies_on", "");
+pref("extensions.jondoswitcher.jondobutton.no_proxies_on", "localhost, 127.0.0.1, jondobrowser.jondos.de");
 pref("extensions.jondoswitcher.jondobutton.proxy_over_tls", true);
 pref("extensions.jondoswitcher.jondobutton.share_proxy_settings", false);
 pref("extensions.jondoswitcher.jondobutton.socks", "127.0.0.1");
