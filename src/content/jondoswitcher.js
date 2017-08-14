@@ -9,8 +9,6 @@ var stringBundleService = Cc["@mozilla.org/intl/stringbundle;1"].getService(Ci.n
 var toolkitProfileService = Cc["@mozilla.org/toolkit/profile-service;1"].createInstance(Ci.nsIToolkitProfileService);
 var xreService = Cc["@mozilla.org/xre/app-info;1"].getService(Ci.nsIXULRuntime);
 
-var switcherInitCount = 0;
-
 var curNetwork = 0;                     //0: direct, 1: jondo, 2: tor
 var jondoEnabled = false;
 var jondoChecked = false;
@@ -34,59 +32,51 @@ var postRequestCommand = "";          //control command for JAP.jar
 window.addEventListener("load", function jondo_switcher_load() {
     //remove onload listener
     window.removeEventListener("load", jondo_switcher_load, false);
-    /*
-    //reset no_proxies_on to ""
-    try{
-        if(prefsService){
-            let prefsBranch = prefsService.getBranch("network.proxy.");
-            if (prefsBranch) {
-                prefsBranch.setCharPref("no_proxies_on", "");
-            }
-        }
-    }catch (e){
-    }
-    */
-
+    // init InterAddonListener for sending post request
+    InterAddonListener.init();
+    // init update intercepter
+    JondoUpdateIntercepter.init();
+    // shutdown intercepter
+    BrowserShutdownIntercepter.init();
     //multi-language strings bundle
     stringsBundle = stringBundleService.createBundle("chrome://jondoswitcher/locale/jondoswitcher.properties");
-
-    //if this is the first time loading, initialize once
-    if(switcherInitCount == 0){       
-        // init update intercepter
-        JondoUpdateIntercepter.init();
-        // shutdown intercepter
-        BrowserShutdownIntercepter.init();
-        try{
-            //check if jondo addons are enabled
-            AddonManager.getAddonByID("jondo-launcher@jondos.de", function(addon) {
-                if (addon) {
-                    jondoEnabled = !(addon.userDisabled);
-                }else{
-                    jondoEnabled = false;
-                }
-                jondoChecked = true;
-                if(torChecked){
-                    validateCurrentNetwork();
-                }
-            });
-            
-            //check if tor addons are enabled
-            AddonManager.getAddonByID("torbutton@torproject.org", function(addon) {
-                if (addon) {
-                    torEnabled = !(addon.userDisabled);
-                }else{
-                    torEnabled = false;
-                }
-                torChecked = true;
-                if(jondoChecked){
-                    validateCurrentNetwork();
-                }
-            });
-        }catch(e){
-            alert(e);
-        }
+    // validate current network and update network string
+    try{
+        //check if jondo addons are enabled
+        AddonManager.getAddonByID("jondo-launcher@jondos.de", function(addon) {
+            if (addon) {
+                jondoEnabled = !(addon.userDisabled);
+            }else{
+                jondoEnabled = false;
+            }
+            jondoChecked = true;
+            if(torChecked){
+                validateCurrentNetwork();
+            }
+        });
+        
+        //check if tor addons are enabled
+        AddonManager.getAddonByID("torbutton@torproject.org", function(addon) {
+            if (addon) {
+                torEnabled = !(addon.userDisabled);
+            }else{
+                torEnabled = false;
+            }
+            torChecked = true;
+            if(jondoChecked){
+                validateCurrentNetwork();
+            }
+        });
+    }catch(e){
+        //alert(e);
     }
-    switcherInitCount = 1;
+}, false);
+
+window.addEventListener("unload", function jondo_switcher_unload() {
+    window.removeEventListener("load", jondo_switcher_unload, false);
+    InterAddonListener.uninit();
+    JondoUpdateIntercepter.uninit();
+    BrowserShutdownIntercepter.uninit();
 }, false);
 
 //validate current network preferences with enabled addons
@@ -111,7 +101,7 @@ function validateCurrentNetwork(){
             }
         }
     }catch(e){
-        alert(e);
+        //alert(e);
     }
 
     //create extensionsDir.txt file that contains extensions directory path
@@ -132,7 +122,7 @@ function validateCurrentNetwork(){
         txtFile.appendRelativePath("extensionsDir.txt");
         writeToExtensionDirFile(txtFile, xpiDestDir.path);
     }catch(e){
-        alert(e);
+        //alert(e);
     }
     
     //if both are enabled, disable tor and restart
@@ -181,7 +171,7 @@ function validateCurrentNetwork(){
                 }
             }
         }catch(e){
-            alert(e);
+            //alert(e);
         }
     }
 }
@@ -365,7 +355,7 @@ function setCurrentNetwork(networkString){
             }
         }
     }catch(e){
-        alert(e);
+        //alert(e);
     }
 }
 function setUpdateStatus(updateStatus){
@@ -378,7 +368,7 @@ function setUpdateStatus(updateStatus){
             }
         }
     }catch(e){
-        alert(e);
+        //alert(e);
     }
 }
 
@@ -426,19 +416,7 @@ var JondoUpdateIntercepter = {
                 //if update available
                 if(contentLength > 100){
                     if(jondoEnabled){
-                        /*
-                        //set no_proxies_on for jondo update server
-                        try{
-                            if (prefsService)
-                            {
-                                prefsBranch = prefsService.getBranch("network.proxy.");
-                                if (prefsBranch)
-                                {
-                                    prefsBranch.setCharPref("no_proxies_on", "jondobrowser.jondos.de");
-                                }
-                            }
-                        }catch(e){}
-                        */
+
                     }else if(torEnabled && !dontAskTorToggling && !updateDialogShown){
                         updateDialogShown = true;
                         var params = {inn:null, out:""};
@@ -456,7 +434,7 @@ var JondoUpdateIntercepter = {
                 }
             }
         }catch(e){
-            alert(e);
+            //alert(e);
         }
         return;
       }
@@ -518,7 +496,7 @@ function cloneProxySettings(srcBranchName, destBranchName){
             destBranch.setBoolPref("include_path", srcBranch.getBoolPref("include_path"));
         }
     } catch(e){
-        alert(e);
+        //alert(e);
     }
 }
 
@@ -529,7 +507,7 @@ function changeHomePage(homePage){
             branch.setCharPref("homepage", homePage);
         }
     } catch(e){
-        alert(e);
+        //alert(e);
     }
 }
 
@@ -612,7 +590,7 @@ function onGetCsrfTokenResult(){
         csrfToken = response.substring(response.indexOf("CSRFTOKEN=") + 10);
         sendPostRequest();
     }catch(e){
-        alert(e);
+        //alert(e);
     }
 }
 function sendPostRequest(){
@@ -626,67 +604,23 @@ function sendPostRequest(){
 function onSendPostRequestResult(){
     try{
         var response = this.responseText;
-        alert(response);
+        //alert(response);
     }catch(e){
-        alert(e);
+        //alert(e);
     }
 }
 
 /* inter-extension communication */
-// Listen for the event on all windows as it is unknown on which one
-// the event will be sent.
-function loadIntoWindow(myWindow) {
-    myWindow.addEventListener("Jondo-New-Identity", receiveMessageFromJondobutton, false);
-}
-
-function unloadFromWindow(myWindow) {
-    myWindow.removeEventListener("Jondo-New-Identity", receiveMessageFromJondobutton, false);
-}
-
-function forEachOpenWindow(fn) {
-    try{
-        // Apply a function to all open browser windows
-        var windows = Services.wm.getEnumerator("navigator:browser");
-        let windowCount = 0;
-        while (windows.hasMoreElements()) {
-            windowCount++;
-            fn(windows.getNext().QueryInterface(Ci.nsIDOMWindow));
-        }
-    }catch(e){
-        alert(e);
-    }
-}
-
 function receiveMessageFromJondobutton(event) {
     var dataFromDummy = event.detail;
-    sendJAPControlCommand("SwitchCascade")
+    sendJAPControlCommand("SwitchCascade");
 }
 
-var WindowListener = {
-    onOpenWindow: function(aWindow)
-    {
-        try{
-            let domWindow = aWindow.QueryInterface(Ci.nsIInterfaceRequestor)
-                                   .getInterface(Ci.nsIDOMWindowInternal || Ci.nsIDOMWindow);
-            function onWindowLoad()
-            {
-                domWindow.removeEventListener("load",onWindowLoad);
-                if (domWindow.document.documentElement.getAttribute("windowtype") == "navigator:browser") {
-                    loadIntoWindow(domWindow);
-                }
-            }
-            domWindow.addEventListener("load",onWindowLoad);
-        }catch(e){
-            alert(e);
-        }
+var InterAddonListener = {
+    init: function(){
+        window.addEventListener("Jondo-New-Identity", receiveMessageFromJondobutton, false);
     },
-
-    onCloseWindow: function(xulWindow) { },  // Each window has an unload event handler.
-
-    onWindowTitleChange: function(xulWindow, newTitle) { }
+    uninit: function(){
+        window.removeEventListener("Jondo-New-Identity", receiveMessageFromJondobutton, false);
+    }
 };
-
-//Listen for the custom event on all current browser windows.
-forEachOpenWindow(loadIntoWindow);
-//Listen for the custom event on any new browser window.
-Services.wm.addListener(WindowListener);
