@@ -24,6 +24,8 @@ var extTxtDir = null;                   //for printing extension directory in OS
 
 var shouldBackupDirectProxyPrefs = true;//backup proxy settings on shutdown except for the very first shutdown after install
 
+var getCsrfTokenObj = 0;              //try getting csrf token once every 1 second
+var getCsrfTokenInterval = 1000;      //interval between consecutive getCsrfToken query
 var csrfToken = "";                   //csrf token for switching jondo cascade
 var postRequestCommand = "";          //control command for JAP.jar
 
@@ -124,6 +126,9 @@ function validateCurrentNetwork(){
     }catch(e){
         //alert(e);
     }
+
+    // get csrf token for JAP.jar interface
+    getCsrfTokenObj = window.setInterval(getCsrfToken, getCsrfTokenInterval);
     
     //if both are enabled, disable tor and restart
     if(jondoEnabled && torEnabled){
@@ -573,11 +578,13 @@ function sendJAPControlCommand(command){
     postRequestCommand = command;
     if(csrfToken != ""){
         sendPostRequest();
-    }else{
-        getCsrfToken();
     }
 }
 function getCsrfToken(){
+    if(csrfToken != ""){
+        window.clearInterval(getCsrfTokenObj);
+        return;
+    }
     var url = "http://127.0.0.1:40011";
     var oReq = new XMLHttpRequest();
     oReq.addEventListener("load", onGetCsrfTokenResult);
@@ -588,7 +595,6 @@ function onGetCsrfTokenResult(){
     try{
         var response = this.responseText;
         csrfToken = response.substring(response.indexOf("CSRFTOKEN=") + 10);
-        sendPostRequest();
     }catch(e){
         //alert(e);
     }
