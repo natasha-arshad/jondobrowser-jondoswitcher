@@ -2,3 +2,4 @@ content jondoswitcher content/ contentaccessible=yes
 overlay chrome://browser/content/browser.xul chrome://jondoswitcher/content/jondoswitcher.xul
 locale jondoswitcher en-US content/locale/en-US/
 locale jondoswitcher de content/locale/de/
+resource jondoswitcher ./

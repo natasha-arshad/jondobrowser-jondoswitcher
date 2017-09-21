@@ -1,8 +1,9 @@
-const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
+const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
 Cu.import('resource://gre/modules/Services.jsm');
 Cu.import("resource://gre/modules/AddonManager.jsm");
 Cu.import("resource://gre/modules/NetUtil.jsm");
 Cu.import("resource://gre/modules/FileUtils.jsm");
+Cu.import("resource://jondoswitcher/content/jondo-communicator.js");
 
 let prefsService = Cc["@mozilla.org/preferences-service;1"].getService(Ci.nsIPrefService);
 var stringBundleService = Cc["@mozilla.org/intl/stringbundle;1"].getService(Ci.nsIStringBundleService);
@@ -23,11 +24,6 @@ var xpiSrcDir = null, xpiDestDir = null;//xpi copying locations
 var extTxtDir = null;                   //for printing extension directory in OSX
 
 var shouldBackupDirectProxyPrefs = true;//backup proxy settings on shutdown except for the very first shutdown after install
-
-var getCsrfTokenObj = 0;              //try getting csrf token once every 1 second
-var getCsrfTokenInterval = 1000;      //interval between consecutive getCsrfToken query
-var csrfToken = "";                   //csrf token for switching jondo cascade
-var postRequestCommand = "";          //control command for JAP.jar
 
 // run jondo_switcher_load on browser load
 // initialization for switcher ui
@@ -75,7 +71,7 @@ window.addEventListener("load", function jondo_switcher_load() {
 }, false);
 
 window.addEventListener("unload", function jondo_switcher_unload() {
-    window.removeEventListener("load", jondo_switcher_unload, false);
+    window.removeEventListener("unload", jondo_switcher_unload, false);
     InterAddonListener.uninit();
     JondoUpdateIntercepter.uninit();
     BrowserShutdownIntercepter.uninit();
@@ -125,10 +121,7 @@ function validateCurrentNetwork(){
         writeToExtensionDirFile(txtFile, xpiDestDir.path);
     }catch(e){
         //alert(e);
-    }
-
-    // get csrf token for JAP.jar interface
-    getCsrfTokenObj = window.setInterval(getCsrfToken, getCsrfTokenInterval);
+    }   
     
     //if both are enabled, disable tor and restart
     if(jondoEnabled && torEnabled){
@@ -137,14 +130,18 @@ function validateCurrentNetwork(){
         restart();
         return;
     }
+
     //if only jondo is enabled
     if(jondoEnabled){
         window.top.document.getElementById("enableJonDo").style.display = "none";
         window.top.document.getElementById("jondo-switcher-message").value = stringsBundle.GetStringFromName("connectedToJondo") + "   ";
         curNetwork = 1;
         cloneProxySettings("extensions.jondoswitcher.jondobutton.", "network.proxy.");
+        // start socket connecting
+        startSocketConnecting();
         return;
     }
+
     //if only tor is enabled
     if (torEnabled) {
         window.top.document.getElementById("enableTor").style.display = "none";
@@ -379,6 +376,7 @@ function setUpdateStatus(updateStatus){
 
 function restart() {
     try{
+      socketControl.silentMode = true;
       let canceled = Cc["@mozilla.org/supports-PRBool;1"].createInstance(Ci.nsISupportsPRBool);
       Services.obs.notifyObservers(canceled, "quit-application-requested", "restart");
       if (canceled.data) return false; // somebody canceled our quit request
@@ -460,6 +458,7 @@ var BrowserShutdownIntercepter = {
 
    // clone proxy settings in direct connection mode
    observerShutdownHandler : { observe : function(subject, topic, data) {
+      socketControl.silentMode = true;
       if(curNetwork == 0 && shouldBackupDirectProxyPrefs){
           cloneProxySettings("network.proxy.", "extensions.jondoswitcher.direct.");
       }
@@ -573,60 +572,20 @@ function getXpiPaths(){
     }
 }
 
-/* send control commands to JAP.jar */
-function sendJAPControlCommand(command){
-    postRequestCommand = command;
-    if(csrfToken != ""){
-        sendPostRequest();
-    }
-}
-function getCsrfToken(){
-    if(csrfToken != ""){
-        window.clearInterval(getCsrfTokenObj);
-        return;
-    }
-    var url = "http://127.0.0.1:40011";
-    var oReq = new XMLHttpRequest();
-    oReq.addEventListener("load", onGetCsrfTokenResult);
-    oReq.open("GET", url);
-    oReq.send();
-}
-function onGetCsrfTokenResult(){
-    try{
-        var response = this.responseText;
-        csrfToken = response.substring(response.indexOf("CSRFTOKEN=") + 10);
-    }catch(e){
-        //alert(e);
-    }
-}
-function sendPostRequest(){
-    var url = "http://127.0.0.1:40011";
-    var oReq = new XMLHttpRequest();
-    oReq.addEventListener("load", onSendPostRequestResult);
-    oReq.open("POST", url);
-    oReq.setRequestHeader("CSRFTOKEN", csrfToken);
-    oReq.send(postRequestCommand);
-}
-function onSendPostRequestResult(){
-    try{
-        var response = this.responseText;
-        //alert(response);
-    }catch(e){
-        //alert(e);
-    }
-}
-
-/* inter-extension communication */
-function receiveMessageFromJondobutton(event) {
-    var dataFromDummy = event.detail;
-    sendJAPControlCommand("SwitchCascade");
-}
 
 var InterAddonListener = {
     init: function(){
-        window.addEventListener("Jondo-New-Identity", receiveMessageFromJondobutton, false);
+        try{
+            window.addEventListener("Jondo-New-Identity", sendSwitchCascadeCommand, false);
+        }catch(e){
+            //alert(e);
+        }
     },
     uninit: function(){
-        window.removeEventListener("Jondo-New-Identity", receiveMessageFromJondobutton, false);
+        try{
+            window.removeEventListener("Jondo-New-Identity", sendSwitchCascadeCommand, false);
+        }catch(e){
+            //alert(e);
+        }
     }
 };
