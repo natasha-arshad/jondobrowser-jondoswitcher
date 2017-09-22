@@ -267,9 +267,19 @@ var waitForRead = ()=>{
                 var data = result.substring(ind + 1);
                 if(command && data){
                     if(command == "open-new-tab"){
+                        var url = data;
+                        // if file url contains "file:/" with just a single slash
+                        // replace it with triple slash for consistency
+                        if(!url.includes("file:///")){
+                          if(url.includes("file://")){
+                            url = url.replace("file://", "file:///");
+                          }else if(url.includes("file:/")){
+                            url = url.replace("file:/", "file:///");
+                          }
+                        }
+
                         // reusing open tabs for a new url opening
                         // if not, open a new tab with the given url and set focus
-                        var url = data;
                         var wm = Components.classes["@mozilla.org/appshell/window-mediator;1"].getService(Components.interfaces.nsIWindowMediator);
                         var browserEnumerator = wm.getEnumerator("navigator:browser");
 
