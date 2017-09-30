@@ -5,7 +5,6 @@ Cu.import('resource://gre/modules/Services.jsm');
 Cu.import("resource://gre/modules/AddonManager.jsm");
 Cu.import("resource://gre/modules/NetUtil.jsm");
 Cu.import("resource://gre/modules/FileUtils.jsm");
-Cu.import("resource://jondoswitcher/content/jondo-communicator.js");
 
 let prefsService = Cc["@mozilla.org/preferences-service;1"].getService(Ci.nsIPrefService);
 var stringBundleService = Cc["@mozilla.org/intl/stringbundle;1"].getService(Ci.nsIStringBundleService);

@@ -1,4 +1,7 @@
+const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
+Cu.import('resource://gre/modules/Services.jsm');
 Cu.import("resource://jondoswitcher/content/jondo-singletons.js");
+var windowMediator = Cc["@mozilla.org/appshell/window-mediator;1"].getService(Ci.nsIWindowMediator);
 
 var checkProxyTimerObj = null;
 
@@ -12,7 +15,7 @@ window.addEventListener("load", function jondo_onload() {
     checkProxyTimerObj = setInterval(checkProxy, 1000);
 
     // add event listeners for messages
-    window.addEventListener("Jondo-New-Identity", JonDoCommunicator.sendSwitchCascadeCommand, false);
+    window.addEventListener("Jondo-New-Identity", sendSwitchCascadeCommand, false);
 }, false);
 
 // add onunload listener
@@ -21,7 +24,7 @@ window.addEventListener("unload", function jondo_onunload() {
     window.removeEventListener("unload", jondo_onunload, false);
 
     // remove event listeners for messages
-    window.removeEventListener("Jondo-New-Identity", JonDoCommunicator.sendSwitchCascadeCommand, false);
+    window.removeEventListener("Jondo-New-Identity", sendSwitchCascadeCommand, false);
 }, false);
 
 
@@ -52,3 +55,14 @@ function checkProxy(){
 var enableJonDo = () => {JonDoSwitcher.enableJonDo();};
 var enableTor = () => {JonDoSwitcher.enableTor();};
 var disableAllProxies = () => {JonDoSwitcher.disableAllProxies();};
+var sendSwitchCascadeCommand = () => {
+    try{
+        if(windowMediator.getMostRecentWindow("navigator:browser") == window){
+            JonDoCommunicator.sendSwitchCascadeCommand();
+        }else{
+            alert("not current window");
+        }
+    }catch(e){
+        alert(e);
+    }
+}
