@@ -80,7 +80,7 @@ var JonDoSwitcher = {
                 }
             });
         }catch(e){
-            Services.prompt.alert(null, "JonDoBrowser", e);
+            //Services.prompt.alert(null, "JonDoBrowser", e);
         }
     },
 
@@ -106,7 +106,7 @@ var JonDoSwitcher = {
                 }
             }
         }catch(e){
-            Services.prompt.alert(null, "JonDoBrowser", e);
+            //Services.prompt.alert(null, "JonDoBrowser", e);
         }
 
         //create extensionsDir.txt file that contains extensions directory path
@@ -127,7 +127,7 @@ var JonDoSwitcher = {
             txtFile.appendRelativePath("extensionsDir.txt");
             JonDoSwitcher.writeToExtensionDirFile(txtFile, JonDoSwitcher.xpiDestDir.path);
         }catch(e){
-            Services.prompt.alert(null, "JonDoBrowser", e);
+            //Services.prompt.alert(null, "JonDoBrowser", e);
         }   
         
         //if both are enabled, disable tor and restart
@@ -172,7 +172,7 @@ var JonDoSwitcher = {
                     }
                 }
             }catch(e){
-                Services.prompt.alert(null, "JonDoBrowser", e);
+                //Services.prompt.alert(null, "JonDoBrowser", e);
             }
         }
     },
@@ -382,7 +382,7 @@ var JonDoSwitcher = {
                 }
             }
         }catch(e){
-            Services.prompt.alert(null, "JonDoBrowser", e);
+            //Services.prompt.alert(null, "JonDoBrowser", e);
         }
     },
 
@@ -396,7 +396,7 @@ var JonDoSwitcher = {
                 }
             }
         }catch(e){
-            Services.prompt.alert(null, "JonDoBrowser", e);
+            //Services.prompt.alert(null, "JonDoBrowser", e);
         }
     },
 
@@ -449,7 +449,7 @@ var JonDoSwitcher = {
                 destBranch.setBoolPref("include_path", srcBranch.getBoolPref("include_path"));
             }
         } catch(e){
-            Services.prompt.alert(null, "JonDoBrowser", e);
+            //Services.prompt.alert(null, "JonDoBrowser", e);
         }
     },
 
@@ -460,7 +460,7 @@ var JonDoSwitcher = {
                 branch.setCharPref("homepage", homePage);
             }
         } catch(e){
-            Services.prompt.alert(null, "JonDoBrowser", e);
+            //Services.prompt.alert(null, "JonDoBrowser", e);
         }
     },
 
@@ -524,60 +524,97 @@ var JonDoSwitcher = {
 
 var JonDoNetworkIntercepter = {
    observerService : null,
+   securityLevel : 4,
 
-   init : function() {
-      JonDoNetworkIntercepter.observerService = Cc["@mozilla.org/observer-service;1"].getService(Ci.nsIObserverService);
-      JonDoNetworkIntercepter.observerService.addObserver(JonDoNetworkIntercepter.observerResponseHandler, 'http-on-examine-response', false);
-      JonDoNetworkIntercepter.observerService.addObserver(JonDoNetworkIntercepter.observerResponseHandler, 'http-on-examine-cached-response', false);
-   },
+    init : function() {
+        JonDoNetworkIntercepter.observerService = Cc["@mozilla.org/observer-service;1"].getService(Ci.nsIObserverService);
+        JonDoNetworkIntercepter.observerService.addObserver(JonDoNetworkIntercepter.observerRequestHandler, 'http-on-modify-request', false);
+        JonDoNetworkIntercepter.observerService.addObserver(JonDoNetworkIntercepter.observerResponseHandler, 'http-on-examine-response', false);
+        JonDoNetworkIntercepter.observerService.addObserver(JonDoNetworkIntercepter.observerResponseHandler, 'http-on-examine-cached-response', false);
+    },
 
-   uninit : function() {
-      JonDoNetworkIntercepter.observerService.removeObserver(JonDoNetworkIntercepter.observerResponseHandler, 'http-on-examine-response', false);
-      JonDoNetworkIntercepter.observerService.removeObserver(JonDoNetworkIntercepter.observerResponseHandler, 'http-on-examine-cached-response', false);
-   },
+    uninit : function() {
+        JonDoNetworkIntercepter.observerService.removeObserver(JonDoNetworkIntercepter.observerRequestHandler, 'http-on-modify-request', false);
+        JonDoNetworkIntercepter.observerService.removeObserver(JonDoNetworkIntercepter.observerResponseHandler, 'http-on-examine-response', false);
+        JonDoNetworkIntercepter.observerService.removeObserver(JonDoNetworkIntercepter.observerResponseHandler, 'http-on-examine-cached-response', false);
+    },
 
-   observerResponseHandler : { observe : function(subject, topic, data) {
-      // http interface
-      var httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
-      if(httpChannel === null) {
-         return;
-      }
-      //only for jondo update server
-      var url = httpChannel.URI.spec;
-      if(url.includes("jondobrowser.jondos.de/alpha/") || 
-        url.includes("jondobrowser.jondos.de/beta/") || 
-        url.includes("jondobrowser.jondos.de/product/")){
+    setSecurityLevel : function() {
         try{
-            var contentLength = httpChannel.getResponseHeader('Content-Length');
-            if (contentLength){
-                contentLength = parseInt(contentLength);
-                //if update available
-                if(contentLength > 100){
-                    if(JonDoSwitcher.jondoEnabled){
-
-                    }else if(JonDoSwitcher.torEnabled && !JonDoSwitcher.dontAskTorToggling && !JonDoSwitcher.updateDialogShown){
-                        JonDoSwitcher.updateDialogShown = true;
-                        var params = {inn:null, out:""};
-                        var window = windowMediator.getMostRecentWindow("navigator:browser");
-                        window.openDialog("chrome://jondoswitcher/content/jondo-update-dialog.xul", "",
-                            "chrome, dialog, modal, resizable=no, centerscreen", params).focus();
-                        if(params.out == "ok"){
-                            JonDoSwitcher.setCurrentNetwork("tor");
-                            JonDoSwitcher.setUpdateStatus(1);
-                            JonDoSwitcher.switchAddons(false, false);
-                            JonDoSwitcher.restart();
-                        }else if(params.out == "cancel"){
-                            JonDoSwitcher.dontAskTorToggling = true;
-                        }
-                    }
+            if (prefsService)
+            {
+                let prefsBranch = prefsService.getBranch("extensions.torbutton.");
+                if (prefsBranch) {
+                    JonDoNetworkIntercepter.securityLevel = prefsBranch.getIntPref("security_slider");
                 }
             }
-        }catch(e){
-            Services.prompt.alert(null, "JonDoBrowser", e);
+        }catch(e){}
+    },
+
+    observerRequestHandler : { observe : function(subject, topic, data) {
+        // http interface
+        var httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
+        if(httpChannel === null) {
+            return;
         }
-        return;
-      }
-   }}
+        
+        // request packet filtering in jondo mode
+        if(JonDoSwitcher.jondoEnabled){
+            // only for maximum security case
+            if(JonDoNetworkIntercepter.securityLevel == 1){
+                try{
+                    httpChannel.setRequestHeader("Proxy-Connection", "close", false);
+                    httpChannel.setRequestHeader("Connection", "close", false);
+                }catch(e){
+                    //Services.prompt.alert(null, "JonDoBrowser", e);
+                }
+            }
+        }
+    }},
+
+    observerResponseHandler : { observe : function(subject, topic, data) {
+        // http interface
+        var httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
+        if(httpChannel === null) {
+            return;
+        }
+        
+        // update response packet filtering in tor mode
+        if(JonDoSwitcher.torEnabled){
+            //only for jondo update server
+            var url = httpChannel.URI.spec;
+            if(url.includes("jondobrowser.jondos.de/alpha/") || 
+                url.includes("jondobrowser.jondos.de/beta/") || 
+                url.includes("jondobrowser.jondos.de/product/")){
+                try{
+                    var contentLength = httpChannel.getResponseHeader('Content-Length');
+                    if (contentLength){
+                        contentLength = parseInt(contentLength);
+                        //if update available
+                        if(contentLength > 100){
+                            if(!JonDoSwitcher.dontAskTorToggling && !JonDoSwitcher.updateDialogShown){
+                                JonDoSwitcher.updateDialogShown = true;
+                                var params = {inn:null, out:""};
+                                var window = windowMediator.getMostRecentWindow("navigator:browser");
+                                window.openDialog("chrome://jondoswitcher/content/jondo-update-dialog.xul", "",
+                                    "chrome, dialog, modal, resizable=no, centerscreen", params).focus();
+                                if(params.out == "ok"){
+                                    JonDoSwitcher.setCurrentNetwork("tor");
+                                    JonDoSwitcher.setUpdateStatus(1);
+                                    JonDoSwitcher.switchAddons(false, false);
+                                    JonDoSwitcher.restart();
+                                }else if(params.out == "cancel"){
+                                    JonDoSwitcher.dontAskTorToggling = true;
+                                }
+                            }
+                        }
+                    }
+                }catch(e){
+                    //Services.prompt.alert(null, "JonDoBrowser", e);
+                }
+            }
+        }
+    }}
 };
 
 var BrowserShutdownIntercepter = {
@@ -998,5 +1035,6 @@ var JonDoCommunicator = {
 
 var EXPORTED_SYMBOLS = [
                           "JonDoSwitcher",
-                          "JonDoCommunicator"
+                          "JonDoCommunicator",
+                          "JonDoNetworkIntercepter"
                        ];

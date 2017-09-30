@@ -15,6 +15,7 @@ window.addEventListener("load", function jondo_onload() {
     checkProxyTimerObj = setInterval(checkProxy, 1000);
 
     // add event listeners for messages
+    window.addEventListener("Jondo-Security-Level", JonDoNetworkIntercepter.setSecurityLevel, false);
     window.addEventListener("Jondo-New-Identity", sendSwitchCascadeCommand, false);
 }, false);
 
@@ -24,6 +25,7 @@ window.addEventListener("unload", function jondo_onunload() {
     window.removeEventListener("unload", jondo_onunload, false);
 
     // remove event listeners for messages
+    window.removeEventListener("Jondo-Security-Level", JonDoNetworkIntercepter.setSecurityLevel, false);
     window.removeEventListener("Jondo-New-Identity", sendSwitchCascadeCommand, false);
 }, false);
 
