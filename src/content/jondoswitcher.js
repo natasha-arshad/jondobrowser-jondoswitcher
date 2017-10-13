@@ -462,7 +462,7 @@ var BrowserShutdownIntercepter = {
       if(curNetwork == 0 && shouldBackupDirectProxyPrefs){
           cloneProxySettings("network.proxy.", "extensions.jondoswitcher.direct.");
       }
-      restart();
+      
    }}
 };
 
@@ -585,6 +585,7 @@ var InterAddonListener = {
     uninit: function(){
         try{
             window.removeEventListener("Jondo-New-Identity", sendSwitchCascadeCommand, false);
+	    restart();
         }catch(e){
             //alert(e);
         }
