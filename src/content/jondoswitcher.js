@@ -585,7 +585,6 @@ var InterAddonListener = {
     uninit: function(){
         try{
             window.removeEventListener("Jondo-New-Identity", sendSwitchCascadeCommand, false);
-	    restart();
         }catch(e){
             //alert(e);
         }
